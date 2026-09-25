@@ -6,28 +6,73 @@ from datetime import date
 
 FILE_NAME = "attendance_records.xlsx"
 
+COLUMNS = [
+    "Record ID",
+    "Student ID",
+    "Student Name",
+    "Class",
+    "Date",
+    "Subject",
+    "Attendance"
+]
+
+
 # ---------------- CREATE EXCEL FILE ----------------
 
-if not os.path.exists(FILE_NAME):
-    wb = openpyxl.Workbook()
+def create_excel_file():
+
+    if not os.path.exists(FILE_NAME):
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Attendance"
+
+        ws.append(COLUMNS)
+
+        wb.save(FILE_NAME)
+        wb.close()
+
+
+# ---------------- CLEAR FORM ----------------
+
+def clear_form():
+
+    student_id_entry.delete(0, tk.END)
+    name_entry.delete(0, tk.END)
+    class_entry.delete(0, tk.END)
+    subject_entry.delete(0, tk.END)
+    search_entry.delete(0, tk.END)
+
+    date_entry.delete(0, tk.END)
+    date_entry.insert(0, str(date.today()))
+
+    attendance_var.set("Present")
+
+
+# ---------------- GET NEXT ID ----------------
+
+def get_next_id():
+
+    wb = openpyxl.load_workbook(FILE_NAME)
     ws = wb.active
-    ws.title = "Attendance"
 
-    ws.append([
-        "Record ID",
-        "Student ID",
-        "Student Name",
-        "Class",
-        "Date",
-        "Subject",
-        "Attendance"
-    ])
+    last_id = 0
 
-    wb.save(FILE_NAME)
+    for row in ws.iter_rows(min_row=2, values_only=True):
+
+        if row[0] is not None:
+
+            try:
+                last_id = max(last_id, int(row[0]))
+            except:
+                pass
+
     wb.close()
 
+    return last_id + 1
 
-# ---------------- ADD RECORD ----------------
+
+# ---------------- ADD ATTENDANCE ----------------
 
 def add_record():
 
@@ -45,15 +90,16 @@ def add_record():
         subject == ""):
 
         messagebox.showwarning(
-            "Warning",
+            "Missing Data",
             "Please fill all fields."
         )
+
         return
+
+    record_id = get_next_id()
 
     wb = openpyxl.load_workbook(FILE_NAME)
     ws = wb.active
-
-    record_id = ws.max_row
 
     ws.append([
         record_id,
@@ -76,7 +122,7 @@ def add_record():
     clear_form()
 
 
-# ---------------- SHOW RECORDS ----------------
+# ---------------- SHOW ALL RECORDS ----------------
 
 def show_records():
 
@@ -107,22 +153,24 @@ def show_records():
         records = "No attendance records found."
 
     messagebox.showinfo(
-        "Attendance Records",
+        "All Attendance Records",
         records
     )
 
 
-# ---------------- SEARCH RECORD ----------------
+# ---------------- SEARCH ----------------
 
 def search_record():
 
     search_value = search_entry.get().strip().lower()
 
     if search_value == "":
+
         messagebox.showwarning(
             "Search",
             "Enter Student ID or Student Name."
         )
+
         return
 
     wb = openpyxl.load_workbook(FILE_NAME)
@@ -163,23 +211,186 @@ def search_record():
     )
 
 
-# ---------------- CLEAR FORM ----------------
+# ---------------- FIND RECORD FOR UPDATE/DELETE ----------------
 
-def clear_form():
+def find_record():
 
-    student_id_entry.delete(0, tk.END)
-    name_entry.delete(0, tk.END)
-    class_entry.delete(0, tk.END)
-    subject_entry.delete(0, tk.END)
-    search_entry.delete(0, tk.END)
+    student_id = student_id_entry.get().strip()
 
-    date_entry.delete(0, tk.END)
-    date_entry.insert(0, str(date.today()))
+    if student_id == "":
 
-    attendance_var.set("Present")
+        messagebox.showwarning(
+            "Find Record",
+            "Enter Student ID first."
+        )
+
+        return
+
+    wb = openpyxl.load_workbook(FILE_NAME)
+    ws = wb.active
+
+    found = False
+
+    for row in ws.iter_rows(min_row=2):
+
+        if str(row[1].value) == student_id:
+
+            name_entry.delete(0, tk.END)
+            name_entry.insert(0, str(row[2].value))
+
+            class_entry.delete(0, tk.END)
+            class_entry.insert(0, str(row[3].value))
+
+            date_entry.delete(0, tk.END)
+            date_entry.insert(0, str(row[4].value))
+
+            subject_entry.delete(0, tk.END)
+            subject_entry.insert(0, str(row[5].value))
+
+            attendance_var.set(str(row[6].value))
+
+            found = True
+            break
+
+    wb.close()
+
+    if not found:
+
+        messagebox.showinfo(
+            "Find Record",
+            "Student record not found."
+        )
+
+
+# ---------------- UPDATE ----------------
+
+def update_record():
+
+    student_id = student_id_entry.get().strip()
+    student_name = name_entry.get().strip()
+    student_class = class_entry.get().strip()
+    attendance_date = date_entry.get().strip()
+    subject = subject_entry.get().strip()
+    attendance = attendance_var.get()
+
+    if student_id == "":
+
+        messagebox.showwarning(
+            "Update",
+            "Enter Student ID first."
+        )
+
+        return
+
+    wb = openpyxl.load_workbook(FILE_NAME)
+    ws = wb.active
+
+    found = False
+
+    for row in ws.iter_rows(min_row=2):
+
+        if str(row[1].value) == student_id:
+
+            row[2].value = student_name
+            row[3].value = student_class
+            row[4].value = attendance_date
+            row[5].value = subject
+            row[6].value = attendance
+
+            found = True
+            break
+
+    if found:
+
+        wb.save(FILE_NAME)
+        wb.close()
+
+        messagebox.showinfo(
+            "Success",
+            "Attendance record updated successfully!"
+        )
+
+        clear_form()
+
+    else:
+
+        wb.close()
+
+        messagebox.showinfo(
+            "Update",
+            "Student record not found."
+        )
+
+
+# ---------------- DELETE ----------------
+
+def delete_record():
+
+    student_id = student_id_entry.get().strip()
+
+    if student_id == "":
+
+        messagebox.showwarning(
+            "Delete",
+            "Enter Student ID first."
+        )
+
+        return
+
+    confirm = messagebox.askyesno(
+        "Confirm Delete",
+        "Are you sure you want to delete this record?"
+    )
+
+    if not confirm:
+        return
+
+    wb = openpyxl.load_workbook(FILE_NAME)
+    ws = wb.active
+
+    found = False
+
+    for row_number in range(
+        2,
+        ws.max_row + 1
+    ):
+
+        if str(ws.cell(
+            row_number,
+            2
+        ).value) == student_id:
+
+            ws.delete_rows(
+                row_number,
+                1
+            )
+
+            found = True
+            break
+
+    wb.save(FILE_NAME)
+    wb.close()
+
+    if found:
+
+        messagebox.showinfo(
+            "Deleted",
+            "Attendance record deleted successfully!"
+        )
+
+        clear_form()
+
+    else:
+
+        messagebox.showinfo(
+            "Delete",
+            "Student record not found."
+        )
 
 
 # ---------------- MAIN WINDOW ----------------
+
+create_excel_file()
 
 root = tk.Tk()
 
@@ -239,7 +450,7 @@ student_id_entry = tk.Entry(
 
 student_id_entry.pack(
     fill="x",
-    pady=(2, 7)
+    pady=(2, 6)
 )
 
 
@@ -259,7 +470,7 @@ name_entry = tk.Entry(
 
 name_entry.pack(
     fill="x",
-    pady=(2, 7)
+    pady=(2, 6)
 )
 
 
@@ -279,7 +490,7 @@ class_entry = tk.Entry(
 
 class_entry.pack(
     fill="x",
-    pady=(2, 7)
+    pady=(2, 6)
 )
 
 
@@ -299,7 +510,7 @@ date_entry = tk.Entry(
 
 date_entry.pack(
     fill="x",
-    pady=(2, 7)
+    pady=(2, 6)
 )
 
 date_entry.insert(
@@ -324,7 +535,7 @@ subject_entry = tk.Entry(
 
 subject_entry.pack(
     fill="x",
-    pady=(2, 7)
+    pady=(2, 6)
 )
 
 
@@ -356,22 +567,61 @@ attendance_menu.config(
 
 attendance_menu.pack(
     fill="x",
-    pady=(2, 10)
+    pady=(2, 8)
 )
 
 
-# ---------------- ADD BUTTON ----------------
+# ---------------- BUTTONS ----------------
 
 tk.Button(
     form,
     text="ADD ATTENDANCE",
-    font=("Arial", 11, "bold"),
+    font=("Arial", 10, "bold"),
     bg="#27AE60",
     fg="white",
     command=add_record
 ).pack(
     fill="x",
-    pady=3
+    pady=2
+)
+
+
+tk.Button(
+    form,
+    text="FIND RECORD",
+    font=("Arial", 10, "bold"),
+    bg="#3498DB",
+    fg="white",
+    command=find_record
+).pack(
+    fill="x",
+    pady=2
+)
+
+
+tk.Button(
+    form,
+    text="UPDATE RECORD",
+    font=("Arial", 10, "bold"),
+    bg="#F39C12",
+    fg="white",
+    command=update_record
+).pack(
+    fill="x",
+    pady=2
+)
+
+
+tk.Button(
+    form,
+    text="DELETE RECORD",
+    font=("Arial", 10, "bold"),
+    bg="#E74C3C",
+    fg="white",
+    command=delete_record
+).pack(
+    fill="x",
+    pady=2
 )
 
 
@@ -384,7 +634,7 @@ tk.Label(
     bg="#EAF4F4"
 ).pack(
     anchor="w",
-    pady=(8, 0)
+    pady=(7, 0)
 )
 
 
@@ -395,35 +645,35 @@ search_entry = tk.Entry(
 
 search_entry.pack(
     fill="x",
-    pady=3
+    pady=2
 )
 
 
 tk.Button(
     form,
     text="SEARCH",
-    font=("Arial", 11, "bold"),
+    font=("Arial", 10, "bold"),
     bg="#8E44AD",
     fg="white",
     command=search_record
 ).pack(
     fill="x",
-    pady=3
+    pady=2
 )
 
 
-# ---------------- SHOW RECORDS ----------------
+# ---------------- SHOW ALL ----------------
 
 tk.Button(
     form,
     text="SHOW ALL RECORDS",
-    font=("Arial", 11, "bold"),
+    font=("Arial", 10, "bold"),
     bg="#2980B9",
     fg="white",
     command=show_records
 ).pack(
     fill="x",
-    pady=3
+    pady=2
 )
 
 
@@ -432,14 +682,14 @@ tk.Button(
 tk.Button(
     form,
     text="CLEAR",
-    font=("Arial", 11, "bold"),
+    font=("Arial", 10, "bold"),
     command=clear_form
 ).pack(
     fill="x",
-    pady=3
+    pady=2
 )
 
 
-# ---------------- START PROGRAM ----------------
+# ---------------- RUN ----------------
 
 root.mainloop()
